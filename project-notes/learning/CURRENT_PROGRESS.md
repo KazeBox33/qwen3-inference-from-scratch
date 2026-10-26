@@ -1,6 +1,6 @@
 # Current Learning Progress
 
-Last updated: 2026-07-21
+Last updated: 2026-10-26
 
 ## Project Goal
 
@@ -8,14 +8,69 @@ Build and understand a Qwen3 inference stack from tensor operations through serv
 
 ## Primary Development Repository
 
+- Independent project: `KazeBox33/qwen3-inference-from-scratch`, branch `main`
+- Learning fork: `KazeBox33/tiny-llm`
+- Current source branch: `complete-week1-boundaries` (through `01031c7`)
+- Fork `main` is the course template, not the personal implementation branch.
+- The entries below marked historical describe the earlier course, not revised Week 2 completion.
+
+The repositories have separate histories. New learning commits are cherry-picked with source attribution into the independent project; no force push or course-template overwrite is used.
+
+## Revised Course Checkpoint
+
+| Area | Status | Evidence / remaining boundary |
+| --- | --- | --- |
+| Week 1 boundary handling | Implemented; focused regressions pass | Causal shape validation, top-p threshold, generation limits and text-buffer flushing |
+| Day 1 KV storage / append | Tested | Initial values, history preservation, shapes, offsets and mask pass-through |
+| Request-scoped model caches | Connected | Independent caches per layer/request; invalid offsets rejected before layer mutation |
+| Cached generation | Connected | One full-prompt prefill, then single-token calls; EOS/limits/input checks and final flush |
+| Tiny-model correctness | Locally verified | Full sequence, single-token and 3/1/2 chunks compared with MLX-LM |
+| SiLU reference consistency | Fixed; local operator regression passes | Compiled `x * mx.sigmoid(x)` matches the reference path; no new custom fused kernel |
+| Real 4B prefill regression | Source notes report passing; skipped on this Mac | Local weights unavailable; no download performed |
+| Revised dense/cache-only baseline | Pending alignment | Current model retains earlier quantized projections; not an isolated cache-only benchmark |
+| Capacity-bounded cache / revised entrypoints | Not implemented by these commits | Do not infer completion from request isolation or a generation token limit |
+| Revised benchmark/profile and later kernels | Pending | Keep legacy experiments separate; no new throughput or memory claims |
+
+Synced source commits: `d9c7f5b`, `e5f8054`, `4478291`, `01031c7`.
+Detailed source-side experiments and numerical diagnosis: [cache flow notes](../../notes/week2-day1-cache-flow.md).
+
+Local verification on 2026-10-26 in the installed project environment:
+
+```bash
+HF_HUB_OFFLINE=1 python -m pytest -q -rs \
+  tests/test_week_1_completion.py tests/test_week_2_cache.py \
+  tests/test_week_2_generation.py tests/test_week_2_model.py \
+  tests/test_week_2_numerics.py
+```
+
+Result: **39 passed, 3 skipped**. The three skipped cases are the seed 0/1/7 Qwen3-4B prefill tests, not successful model checks.
+No extension source changed in this sync, but this checkout initially lacked built binaries: the first run had 36 passed, 3 failed and 3 skipped because `quantized_matmul` was unavailable.
+Rebuilt the existing extension locally without changing source or dependencies. CMake initially selected Xcode Python 3.9; clearing its cached Python discovery and explicitly selecting this project's Python 3.12 fixed the build.
+From `src/extensions`, the successful command was:
+
+```bash
+DEBUG=0 CMAKE_ARGS="-U*Python* -DPython_EXECUTABLE=$VIRTUAL_ENV/bin/python" python build.py
+```
+
+Activate the project's virtual environment first so `VIRTUAL_ENV` and `python` refer to it. Build outputs remain ignored and are not committed.
+
+## Immediate Next Step
+
+Continue from the revised Week 2 Day 1 guide: review cache state flow and align the dense readable baseline before benchmarking.
+The current fork and this mirror still retain older guide/CLI/dependency interfaces; do not copy revised `--week2-checkpoint` commands without first implementing and verifying that interface.
+Then follow revised benchmarking/profiling order, choosing optimizations from measurements rather than jumping to the historical Metal Flash Attention task.
+Retain the source notes' capacity-cache follow-up as pending; a generation `max_tokens` bound is not allocated KV-cache capacity management.
+
+## Historical Repository Layout (2026-07)
+
 - Repository: `KazeBox33/tiny-llm`
 - Branch: `main`
 - Upstream course: `skyzh/tiny-llm`
 - Resume-facing mirror: `KazeBox33/qwen3-inference-from-scratch`
 
-Continue development in `KazeBox33/tiny-llm`. The resume-facing repository has a separate history and is synchronized after completed tasks.
+This was the July setup; use the current source branch and revised checkpoint above when resuming.
 
-## Guide Progress
+## Historical Guide Progress (2026-07)
 
 | Guide section | Status | Evidence |
 | --- | --- | --- |
@@ -29,7 +84,7 @@ Continue development in `KazeBox33/tiny-llm`. The resume-facing repository has a
 | Week 2 Day 6-7: prefill and batching | Pending | Start only after Flash Attention Task 4 passes |
 | Week 3: paged attention and MoE | Pending | Start after Week 2 is complete |
 
-## Current Flash Attention Checkpoint
+## Historical Flash Attention Checkpoint
 
 The CPU implementation in `src/extensions/src/flash_attention.cpp` is complete and understood. Topics already studied:
 
@@ -53,7 +108,7 @@ DEBUG=0 pdm run test --week 2 --day 4 -- -k task_2
 9 passed, 11 deselected
 ```
 
-## Immediate Next Task
+## Historical Next Task (Not the Current Resume Point)
 
 Follow `book/src/week2-04-flash-attention.md`, Task 3, in this order:
 
@@ -73,7 +128,7 @@ DEBUG=0 pdm run test --week 2 --day 4 -- -k task_3
 
 Do not start Task 4 model integration until Task 3 correctness and causal-mask performance tests pass.
 
-## New Mac Setup
+## Historical New Mac Setup
 
 This project requires an Apple Silicon Mac for MLX/Metal execution.
 
